@@ -357,3 +357,9 @@ catalog-build: opm ## Build a catalog image.
 
 catalog-push: ## Push a catalog image.
 	$(MAKE) image-push IMG=$(CATALOG_IMG)
+
+.PHONY: orchestrator-crds
+
+orchestrator-crds: manifests ## Refresh the static DbcsSystem CRD extract the orchestrator-crds overlay serves (estate)
+
+	{ printf '%s\\n' '# STATIC EXTRACT of config/crd/bases/database.oracle.com_dbcssystems.yaml.' '# Kustomize refuses files outside the kustomization root, and the operator'"'"'s' '# full CRD set (config/crd) must NOT be served on the orchestrator, so this' '# overlay carries a copy. Re-extract on every DbcsSystem CRD change:' '#   make orchestrator-crds    (the release workflow fails when it is stale)' '---'; cat config/crd/bases/database.oracle.com_dbcssystems.yaml; } > platform/overlays/orchestrator-crds/database.oracle.com_dbcssystems.yaml

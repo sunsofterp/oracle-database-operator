@@ -6,10 +6,12 @@
 # GVK on the LOCAL API server — the kind must be served here even though
 # nothing reconciles it here. Only the one CRD the compositions wrap: the
 # operator's full CRD set (config/crd) stays on the tenant clusters.
+# The CRD file here is a STATIC EXTRACT (kustomize load restrictions);
+# `make orchestrator-crds` refreshes it and the release workflow verifies it.
 # Companion: iak cluster-rbac foreign-GVK read grant for
 # database.oracle.com/dbcssystems (ADR-067). Same pattern as
 # cloudnative-pg's overlays/orchestrator-crds.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - ../../../config/crd/bases/database.oracle.com_dbcssystems.yaml
+  - database.oracle.com_dbcssystems.yaml
