@@ -113,6 +113,11 @@ spec:
                     type: integer
                   dataStorageSizeInTBs:
                     type: integer
+                  databaseEdition:
+                    enum:
+                    - STANDARD_EDITION
+                    - ENTERPRISE_EDITION
+                    type: string
                   dbName:
                     type: string
                   dbVersion:
@@ -202,6 +207,11 @@ spec:
                     type: integer
                   dataStorageSizeInTBs:
                     type: integer
+                  databaseEdition:
+                    enum:
+                    - STANDARD_EDITION
+                    - ENTERPRISE_EDITION
+                    type: string
                   dbName:
                     type: string
                   dbVersion:
@@ -450,6 +460,11 @@ spec:
                     type: integer
                   dataStorageSizeInTBs:
                     type: integer
+                  databaseEdition:
+                    enum:
+                    - STANDARD_EDITION
+                    - ENTERPRISE_EDITION
+                    type: string
                   dbName:
                     type: string
                   dbVersion:
@@ -539,6 +554,11 @@ spec:
                     type: integer
                   dataStorageSizeInTBs:
                     type: integer
+                  databaseEdition:
+                    enum:
+                    - STANDARD_EDITION
+                    - ENTERPRISE_EDITION
+                    type: string
                   dbName:
                     type: string
                   dbVersion:

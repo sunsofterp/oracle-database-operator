@@ -85,10 +85,15 @@ type AutonomousDatabaseBase struct {
 	// +kubebuilder:validation:Enum:="OLTP";"DW";"AJD";"APEX";"LH"
 	DbWorkload database.AutonomousDatabaseDbWorkloadEnum `json:"dbWorkload,omitempty"`
 	// +kubebuilder:validation:Enum:="LICENSE_INCLUDED";"BRING_YOUR_OWN_LICENSE"
-	LicenseModel         database.AutonomousDatabaseLicenseModelEnum `json:"licenseModel,omitempty"`
-	DbVersion            *string                                     `json:"dbVersion,omitempty"`
-	DataStorageSizeInTBs *int                                        `json:"dataStorageSizeInTBs,omitempty"`
-	CpuCoreCount         *int                                        `json:"cpuCoreCount,omitempty"`
+	LicenseModel database.AutonomousDatabaseLicenseModelEnum `json:"licenseModel,omitempty"`
+	// DatabaseEdition selects the Oracle Database edition for a BRING_YOUR_OWN_LICENSE
+	// Autonomous Database Serverless (Standard Edition 2 or Enterprise Edition).
+	// Ignored by OCI unless licenseModel is BRING_YOUR_OWN_LICENSE.
+	// +kubebuilder:validation:Enum:="STANDARD_EDITION";"ENTERPRISE_EDITION"
+	DatabaseEdition      database.AutonomousDatabaseDatabaseEditionEnum `json:"databaseEdition,omitempty"`
+	DbVersion            *string                                        `json:"dbVersion,omitempty"`
+	DataStorageSizeInTBs *int                                           `json:"dataStorageSizeInTBs,omitempty"`
+	CpuCoreCount         *int                                           `json:"cpuCoreCount,omitempty"`
 	// +kubebuilder:validation:Enum:="ECPU";"OCPU"
 	ComputeModel         database.AutonomousDatabaseComputeModelEnum `json:"computeModel,omitempty"`
 	ComputeCount         *float32                                    `json:"computeCount,omitempty"`
@@ -302,6 +307,9 @@ func (adb *AutonomousDatabase) UpdateFromOciAdb(ociObj database.AutonomousDataba
 	}
 	if overwrite || adb.Spec.Details.LicenseModel == "" {
 		adb.Spec.Details.LicenseModel = ociObj.LicenseModel
+	}
+	if overwrite || adb.Spec.Details.DatabaseEdition == "" {
+		adb.Spec.Details.DatabaseEdition = ociObj.DatabaseEdition
 	}
 	if overwrite || adb.Spec.Details.DbVersion == nil {
 		adb.Spec.Details.DbVersion = ociObj.DbVersion
