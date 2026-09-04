@@ -153,6 +153,10 @@ func CreateAndGetDbcsID(compartmentID string, logger logr.Logger, kubeClient cli
 		LicenseModel:               database.LaunchDbSystemDetailsLicenseModelEnum(licenceModel),
 	}
 
+	// Network placement (NSGs, private IP, time zone, fault domains, backup
+	// network) — previously only honored on the clone paths.
+	applyLaunchNetwork(&dbcsDetails, dbcs.Spec.DbSystem)
+
 	if len(dbcs.Spec.DbSystem.Tags) != 0 {
 		dbcsDetails.FreeformTags = dbcs.Spec.DbSystem.Tags
 	}
