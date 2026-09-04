@@ -1,0 +1,38 @@
+---
+# Mirror declaration for this fork's controller image. The Release asset (an
+# OCI image-layout tarball, multi-arch, built by .github/workflows/release.yml)
+# is copied into THIS cluster's OCIR compartment digest-preserving; the target
+# is an env-generic placeholder the iak ApplicationSet patches per environment
+# (…/oracle-database-operator-<environment>:<tag>).
+#
+# sourceDigest is the image's OCI MANIFEST-LIST digest from the release body
+# ("## Controller image") — the scan/policy subject identity today
+# (refuse-on-mismatch is an open provenance-lifecycle work item); the
+# load-bearing content-address check is the digest pin the consuming XCluster
+# platform item carries (saas-tenant-cluster/cluster/xcluster.yaml).
+#
+# WRAPPED IN AN OptionalManifests CARRIER (iak ADR-075): the MirroredArtifact
+# CRD arrives with the provenance-lifecycle app at runtime, and a raw manifest
+# with an unserved GVK poisons the whole Application's atomic sync. The
+# carrier applies clean immediately; the operator materializes the inner
+# manifest once the CRD is served.
+apiVersion: resources.sunsofterp.com/v1
+kind: OptionalManifests
+metadata:
+  name: oracle-database-operator-image
+  namespace: oracle-database-operator-system
+spec:
+  manifests:
+    - apiVersion: mirror.sunsofterp.com/v1alpha1
+      kind: MirroredArtifact
+      metadata:
+        name: oracle-database-operator-image
+        namespace: oracle-database-operator-system
+      spec:
+        type: oci
+        # v2.2.0-sunsofterp.1 = upstream v2.2.0 + AutonomousDatabase
+        # spec.details.databaseEdition (#1) + the estate release/platform tree (#2).
+        source: github-release://sunsofterp/oracle-database-operator@v2.2.0-sunsofterp.1/oracle-database-operator-v2.2.0-sunsofterp.1.oci.tar
+        sourceDigest: sha256:538db1d11185ba59ee31dba9d159f026d178653a6586f60438a9df49bf176a1e
+        target: iad.ocir.io/idfkrwsy40sd/oracle-database-operator/oracle-database-operator:env-generic-placeholder
+        interval: 10m

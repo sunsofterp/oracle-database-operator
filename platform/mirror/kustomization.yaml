@@ -1,0 +1,17 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The SUPPLY side of this fork's controller image, deployed on the
+# ORCHESTRATOR (not the tenant cluster): the provenance-lifecycle mirror
+# operator copies the GitHub Release asset (an OCI image-layout tarball,
+# multi-arch, digest-preserving) into this cluster's OCIR compartment, and the
+# XContainerRepository claim creates the repo it pushes into. Consumed by an
+# iak oracle-database-operator-mirror ApplicationSet whose kustomize patch
+# fills the per-environment target; the saas-tenant XCluster's platform item
+# digest-pins the mirrored copy (the Solstice two-app supply/consume pattern,
+# as cloudnative-pg/mirror does for the barman-cloud images).
+resources:
+  - namespace.yaml
+  - mirroredartifacts.yaml
+  - containerrepositories.yaml
