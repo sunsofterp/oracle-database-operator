@@ -1,0 +1,13 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# The saas-tenant XCluster's overlay (saas-tenant-cluster/cluster/xcluster.yaml
+# spec.platform item "oracle-database-operator"). Carries no cluster-specific
+# values today — the base is already sized for the estate's small-node
+# children and watches all namespaces. The IMAGE is not set here: it is the
+# per-environment OCIR copy of this fork's release asset (digest-pinned), and
+# the XCluster item's source.kustomize.patches replaces it, exactly as the
+# cnpg item does for the barman-cloud plugin images.
+resources:
+  - ../../base

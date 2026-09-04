@@ -1,0 +1,144 @@
+name: Release
+
+# ESTATE RELEASE of this fork (sunsofterp/oracle-database-operator). On a
+# version tag (v<upstream>-sunsofterp.<n>), publish a GitHub Release carrying:
+#
+#   1. crds.yaml + SHA256SUMS — the operator's CRD set rendered from the
+#      committed config/crd bases (what the estate's tooling/tests consume);
+#   2. the controller IMAGE as an OCI image-layout tarball asset — the
+#      versioned, from-nothing/DR-safe source the provenance-lifecycle mirror
+#      operator stages into each cluster's OCIR (MirroredArtifact
+#      github-release://…). Same supply pattern as every estate-built image
+#      (plugin-barman-cloud, optional-manifests-operator, provenance-lifecycle).
+#
+# Upstream ships no workflows; this file is estate-only and never goes
+# upstream. The image build uses the upstream Dockerfile UNCHANGED: its builder
+# stage runs on the TARGET platform (it installs Go for TARGETARCH), so the
+# arm64 half of the multi-arch build runs under QEMU rather than
+# cross-compiling — slower, but the Dockerfile stays rebasable.
+# Only the estate's tag convention fires it: a plain upstream tag (v2.2.0)
+# pushed to mark a rebase point must NOT publish a release.
+on:
+  push:
+    tags:
+      - "v*-sunsofterp.*"
+
+permissions:
+  contents: write # create the release and upload assets
+
+jobs:
+  release:
+    name: Render CRDs and create the release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Setup Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: Render the CRDs
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          make kustomize
+          ./bin/kustomize build config/crd > dist/crds.yaml
+          echo "Rendered CRDs:"
+          grep -E '^  name: ' dist/crds.yaml | sort || true
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum crds.yaml > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create release with CRD assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME}"
+          gh release create "${version}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --title "${version}" \
+            --generate-notes \
+            dist/crds.yaml \
+            dist/SHA256SUMS
+
+  # `needs: release` so the release exists — this job only uploads; no create
+  # race. The image's manifest-list digest is appended to the release notes so
+  # the mirror declaration (sourceDigest) and the consumer's pin are read from
+  # one place.
+  controller-image:
+    name: Build + publish the controller image as a Release asset
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # upload the asset to the release
+    steps:
+      - name: Clone the code
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Read the Go version the module requires
+        id: go
+        run: |
+          set -euo pipefail
+          v="$(sed -n 's/^go \([0-9][0-9.]*\).*/\1/p' go.mod | head -1)"
+          test -n "$v"
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+      # The upstream Dockerfile's builder stage runs on the target platform
+      # (no BUILDPLATFORM cross-compile), so arm64 needs emulation.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      # amd64+arm64 (the A1/A2 Flex OKE nodes are arm64). type=oci writes the
+      # spec-compliant layout preserving the multi-arch index and exact
+      # digests; a sha256 pin survives the Release round-trip.
+      - name: Build (multi-arch) to an OCI image layout
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: .
+          push: false
+          platforms: linux/amd64,linux/arm64
+          outputs: type=oci,dest=image-layout,tar=false
+          build-args: |
+            GOLANG_VERSION=${{ steps.go.outputs.version }}
+            INSTALL_GO=true
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          sbom: true
+          provenance: mode=max
+
+      - name: Package layout as an asset + upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          test -f image-layout/oci-layout && test -f image-layout/index.json \
+            || { echo "buildx did not produce an OCI layout"; ls -la image-layout || true; exit 1; }
+          DIG="$(jq -r '[.manifests[] | select(.mediaType | test("image.index|manifest.list|image.manifest"))][0].digest // .manifests[0].digest' image-layout/index.json)"
+          test -n "$DIG" && test "$DIG" != "null" || { echo "could not read digest"; cat image-layout/index.json; exit 1; }
+          ASSET="oracle-database-operator-${VERSION}.oci.tar"
+          tar -C image-layout -cf "$ASSET" .
+          echo "Controller image digest (manifest list): $DIG   asset: $ASSET ($(du -h "$ASSET" | cut -f1))"
+          # The release exists (needs: release); distinct asset name → --clobber
+          # only touches same-named on a re-run, the CRD assets are untouched.
+          gh release upload "$VERSION" "$ASSET" --clobber
+          # Append the digest to the notes so mirror + consumer pins read it
+          # from the release body. Idempotent on a re-run: an existing
+          # "## Controller image" section is REPLACED (a re-run may have
+          # rebuilt to a different digest — the notes must name the asset
+          # that is actually attached), never appended twice.
+          notes="$(gh release view "$VERSION" --json body --jq .body)"
+          notes="$(printf '%s\n' "$notes" | sed '/^## Controller image$/,$d')"
+          printf '%s\n\n## Controller image\n\n- asset: `%s`\n- manifest-list digest: `%s`\n' "$notes" "$ASSET" "$DIG" > notes.md
+          gh release edit "$VERSION" --notes-file notes.md
