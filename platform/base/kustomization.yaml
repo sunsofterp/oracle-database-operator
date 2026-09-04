@@ -24,6 +24,16 @@ kind: Kustomization
 # XCluster item runs at a later sync wave than its cert-manager item.
 resources:
   - ../../config/default
+  # CLUSTER-SCOPED MODE needs a ClusterRoleBinding: config/rbac binds the
+  # manager ClusterRole with a NAMESPACED RoleBinding (upstream's default is
+  # namespace-scoped watch), so with WATCH_NAMESPACE="" below the manager could
+  # list nothing outside its own namespace (live 2026-09-04 on saas-tenant
+  # slotA: "cannot list resource lrpdbs … at the cluster scope"). This is the
+  # binding upstream's README prescribes for cluster-scoped installs
+  # (rbac/cluster-role-binding.yaml — copied here verbatim because kustomize's
+  # load restrictor forbids a FILE outside the kustomization root; its names
+  # are already the post-namePrefix ones config/default renders).
+  - cluster-role-binding.yaml
 
 # The image is this fork's OWN release (the estate builds it as a Release
 # asset and mirrors it into each cluster's OCIR compartment), never the
