@@ -39,6 +39,8 @@
 package oci
 
 import (
+	"errors"
+
 	"github.com/oracle/oci-go-sdk/v65/common"
 	"github.com/oracle/oci-go-sdk/v65/database"
 
@@ -46,10 +48,31 @@ import (
 )
 
 // isCrossRegionDRPeer reports whether the CR asks for this database to be
-// created as the cross-region disaster-recovery peer of another database.
+// created as the cross-region disaster-recovery peer of another database:
+// both sourceId and type must be set (validateDisasterRecovery rejects the
+// half-specified case before this is consulted).
 func isCrossRegionDRPeer(adb *dbv4.AutonomousDatabase) bool {
 	dr := adb.Spec.Details.DisasterRecovery
-	return dr != nil && dr.SourceId != nil && *dr.SourceId != ""
+	return dr != nil && dr.SourceId != nil && *dr.SourceId != "" && dr.Type != ""
+}
+
+// validateDisasterRecovery rejects a spec.details.disasterRecovery that names
+// a sourceId without a type (or a type without a sourceId): OCI would answer
+// 400 to the former and the latter would silently create a STANDALONE
+// database, so neither may reach the create path.
+func validateDisasterRecovery(adb *dbv4.AutonomousDatabase) error {
+	dr := adb.Spec.Details.DisasterRecovery
+	if dr == nil {
+		return nil
+	}
+	hasSource := dr.SourceId != nil && *dr.SourceId != ""
+	switch {
+	case hasSource && dr.Type == "":
+		return errors.New("spec.details.disasterRecovery.type is required when sourceId is set (BACKUP_BASED or ADG)")
+	case !hasSource && dr.Type != "":
+		return errors.New("spec.details.disasterRecovery.sourceId is required when type is set")
+	}
+	return nil
 }
 
 // crossRegionDRDetails maps spec.details of a CR onto the OCI request body that

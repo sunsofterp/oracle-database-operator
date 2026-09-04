@@ -123,11 +123,13 @@ type AutonomousDatabaseBase struct {
 // corresponding to oci-go-sdk/database/CreateCrossRegionDisasterRecoveryDetails.
 type DisasterRecoverySpec struct {
 	// SourceId is the OCID of the primary (source) Autonomous Database.
-	SourceId *string `json:"sourceId,omitempty"`
+	// +kubebuilder:validation:Required
+	SourceId *string `json:"sourceId"`
 	// Type selects the disaster-recovery technology: Autonomous Data Guard (ADG)
-	// or backup-based (BACKUP_BASED).
+	// or backup-based (BACKUP_BASED). Required with SourceId.
+	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Enum:="BACKUP_BASED";"ADG"
-	Type database.DisasterRecoveryConfigurationDisasterRecoveryTypeEnum `json:"type,omitempty"`
+	Type database.DisasterRecoveryConfigurationDisasterRecoveryTypeEnum `json:"type"`
 	// IsReplicateAutomaticBackups replicates the primary's automatic backups to the peer region.
 	IsReplicateAutomaticBackups *bool `json:"isReplicateAutomaticBackups,omitempty"`
 }

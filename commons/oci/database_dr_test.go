@@ -62,7 +62,8 @@ func TestIsCrossRegionDRPeer(t *testing.T) {
 		{name: "nil disasterRecovery", dr: nil, want: false},
 		{name: "disasterRecovery without sourceId", dr: &dbv4.DisasterRecoverySpec{Type: database.DisasterRecoveryConfigurationDisasterRecoveryTypeAdg}, want: false},
 		{name: "empty sourceId", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String("")}, want: false},
-		{name: "sourceId set", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String(testPrimaryOCID)}, want: true},
+		{name: "sourceId set without type", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String(testPrimaryOCID)}, want: false},
+		{name: "sourceId and type set", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String(testPrimaryOCID), Type: database.DisasterRecoveryConfigurationDisasterRecoveryTypeBackupBased}, want: true},
 	}
 
 	for _, tc := range cases {
@@ -71,6 +72,32 @@ func TestIsCrossRegionDRPeer(t *testing.T) {
 			adb.Spec.Details.DisasterRecovery = tc.dr
 			if got := isCrossRegionDRPeer(adb); got != tc.want {
 				t.Fatalf("isCrossRegionDRPeer() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestValidateDisasterRecovery(t *testing.T) {
+	cases := []struct {
+		name    string
+		dr      *dbv4.DisasterRecoverySpec
+		wantErr bool
+	}{
+		{name: "nil disasterRecovery", dr: nil, wantErr: false},
+		{name: "empty struct", dr: &dbv4.DisasterRecoverySpec{}, wantErr: false},
+		{name: "sourceId without type", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String(testPrimaryOCID)}, wantErr: true},
+		{name: "type without sourceId", dr: &dbv4.DisasterRecoverySpec{Type: database.DisasterRecoveryConfigurationDisasterRecoveryTypeAdg}, wantErr: true},
+		{name: "empty sourceId with type", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String(""), Type: database.DisasterRecoveryConfigurationDisasterRecoveryTypeAdg}, wantErr: true},
+		{name: "both set", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String(testPrimaryOCID), Type: database.DisasterRecoveryConfigurationDisasterRecoveryTypeAdg}, wantErr: false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			adb := &dbv4.AutonomousDatabase{}
+			adb.Spec.Details.DisasterRecovery = tc.dr
+			err := validateDisasterRecovery(adb)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("validateDisasterRecovery() error = %v, wantErr %v", err, tc.wantErr)
 			}
 		})
 	}

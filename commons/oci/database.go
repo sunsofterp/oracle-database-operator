@@ -141,6 +141,9 @@ func (d *DatabaseService) readACDOCID(ctx context.Context, acd *dbv4.AcdSpec, na
 // standalone database. The peer takes its admin password from the primary, so
 // spec.details.adminPassword is not read in that case.
 func (d *DatabaseService) CreateAutonomousDatabase(ctx context.Context, adb *dbv4.AutonomousDatabase) (resp database.CreateAutonomousDatabaseResponse, err error) {
+	if err := validateDisasterRecovery(adb); err != nil {
+		return resp, err
+	}
 	if isCrossRegionDRPeer(adb) {
 		d.logger.WithName("createADB").Info("Creating the Autonomous Database as a cross-region disaster-recovery peer",
 			"sourceId", *adb.Spec.Details.DisasterRecovery.SourceId)
