@@ -24,6 +24,8 @@ This page has the details of the parameters to define the specs related to an op
 | nodeCount | The number of nodes in the DB system. For RAC DB systems, the value is greater than 1. | N | Integer | | Minimum: 1 |
 | pdbName | The name of the pluggable database. The name must begin with an alphabetic character and can contain a maximum of thirty alphanumeric characters. Special characters are not permitted. | N | String | | The PDB name can contain only alphanumeric and underscore (_) characters. |
 | privateIp | A private IP address of your choice. Must be an available IP address within the subnet's CIDR. If you don't specify a value, Oracle automatically assigns a private IP address from the subnet. | N | String | | Min length: 1 and Max length: 46 |
+| nsgIds | OCIDs of the network security groups the DB system's client VNIC is attached to at launch, so the database accepts connections only from known sources. | N | List of Strings | | Max 5 NSG OCIDs |
+| backupNetworkNsgIds | OCIDs of the network security groups for the backup network VNIC; only meaningful with backupSubnetId. | N | List of Strings | | Max 5 NSG OCIDs |
 | shape | The shape of the DB system. The shape determines resources to allocate to the DB system. | Y | String | | Please refer to this link for the available shapes: https://docs.oracle.com/en-us/iaas/Content/Database/Concepts/overview.htm |
 | sshPublicKeys | Kubernetes secret created with the Public Key portion of the key pair created to access the DB System. | Y | String | | |
 | storageManagement | The storage option used in DB system. ASM - Automatic storage management LVM - Logical Volume management. | N | String | | ASM or LVM |

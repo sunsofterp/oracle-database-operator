@@ -87,6 +87,14 @@ type DbSystemDetails struct {
 	TimeZone                   string            `json:"timeZone,omitempty"`
 	NodeCount                  *int              `json:"nodeCount,omitempty"`
 	PrivateIp                  string            `json:"privateIp,omitempty"`
+	// NsgIds are the network security groups the DB system's client VNIC is
+	// attached to at launch (OCI LaunchDbSystemDetails.nsgIds). Lets the
+	// database accept connections only from a known set of sources (e.g. the
+	// estate's per-tenant TNS proxies) instead of the whole subnet.
+	NsgIds []string `json:"nsgIds,omitempty"`
+	// BackupNetworkNsgIds are the NSGs for the backup network VNIC, when
+	// backupSubnetId is set (OCI LaunchDbSystemDetails.backupNetworkNsgIds).
+	BackupNetworkNsgIds        []string          `json:"backupNetworkNsgIds,omitempty"`
 	Domain                     string            `json:"domain,omitempty"`
 	InitialDataStorageSizeInGB int               `json:"initialDataStorageSizeInGB,omitempty"`
 	ClusterName                string            `json:"clusterName,omitempty"`

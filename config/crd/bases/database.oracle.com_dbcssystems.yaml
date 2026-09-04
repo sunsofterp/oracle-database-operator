@@ -501,6 +501,10 @@ spec:
                     type: string
                   backupDisplayName:
                     type: string
+                  backupNetworkNsgIds:
+                    items:
+                      type: string
+                    type: array
                   backupSubnetId:
                     type: string
                   clusterName:
@@ -571,6 +575,10 @@ spec:
                     type: string
                   nodeCount:
                     type: integer
+                  nsgIds:
+                    items:
+                      type: string
+                    type: array
                   pdbName:
                     type: string
                   privateIp:

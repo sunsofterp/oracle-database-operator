@@ -2070,6 +2070,16 @@ func (in *DbSystemDetails) DeepCopyInto(out *DbSystemDetails) {
 		*out = new(int)
 		**out = **in
 	}
+	if in.NsgIds != nil {
+		in, out := &in.NsgIds, &out.NsgIds
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.BackupNetworkNsgIds != nil {
+		in, out := &in.BackupNetworkNsgIds, &out.BackupNetworkNsgIds
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.Tags != nil {
 		in, out := &in.Tags, &out.Tags
 		*out = make(map[string]string, len(*in))
