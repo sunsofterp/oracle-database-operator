@@ -16,10 +16,12 @@ name: Release
 # stage runs on the TARGET platform (it installs Go for TARGETARCH), so the
 # arm64 half of the multi-arch build runs under QEMU rather than
 # cross-compiling — slower, but the Dockerfile stays rebasable.
+# Only the estate's tag convention fires it: a plain upstream tag (v2.2.0)
+# pushed to mark a rebase point must NOT publish a release.
 on:
   push:
     tags:
-      - "v*"
+      - "v*-sunsofterp.*"
 
 permissions:
   contents: write # create the release and upload assets
@@ -132,7 +134,11 @@ jobs:
           # only touches same-named on a re-run, the CRD assets are untouched.
           gh release upload "$VERSION" "$ASSET" --clobber
           # Append the digest to the notes so mirror + consumer pins read it
-          # from the release body.
+          # from the release body. Idempotent on a re-run: an existing
+          # "## Controller image" section is REPLACED (a re-run may have
+          # rebuilt to a different digest — the notes must name the asset
+          # that is actually attached), never appended twice.
           notes="$(gh release view "$VERSION" --json body --jq .body)"
+          notes="$(printf '%s\n' "$notes" | sed '/^## Controller image$/,$d')"
           printf '%s\n\n## Controller image\n\n- asset: `%s`\n- manifest-list digest: `%s`\n' "$notes" "$ASSET" "$DIG" > notes.md
           gh release edit "$VERSION" --notes-file notes.md

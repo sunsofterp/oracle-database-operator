@@ -66,6 +66,13 @@ patches:
       # is installed, so the upstream default (watch only the operator's own
       # namespace via the downward API) would see none of them. An empty
       # WATCH_NAMESPACE is the operator's documented all-namespaces mode.
+      # JSON6902 addresses env entries by INDEX; the `test` op pins the
+      # assumption (env/0 is WATCH_NAMESPACE in config/manager/manager.yaml)
+      # so an upstream rebase that reorders the list fails the render loudly
+      # instead of silently overwriting some other variable.
+      - op: test
+        path: /spec/template/spec/containers/0/env/0/name
+        value: WATCH_NAMESPACE
       - op: replace
         path: /spec/template/spec/containers/0/env/0
         value:
