@@ -1,0 +1,79 @@
+---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ESTATE DEPLOYMENT of this fork (sunsofterp/oracle-database-operator) as an
+# XCluster PLATFORM ITEM (spec.platform, XPlatform consumer-pull): pulled onto
+# EVERY slot of the XCluster that lists it, so a migration's from-nothing
+# destination slot comes up with the operator too. Same pattern as the
+# estate's other operators (cloudnative-pg, external-secrets,
+# keycloak-operator), except that the source here is our OWN fork rather than
+# a vendored upstream bundle — so the base renders straight from the
+# upstream-shaped config/default (CRDs, RBAC, manager, metrics, webhook +
+# cert-manager Certificate/Issuer, network policy) and only the estate's
+# deltas live in this tree. Nothing under config/ is estate-specific; the
+# fork stays rebasable.
+#
+# Why this fork exists at all: the AutonomousDatabase CR gained
+# spec.details.databaseEdition (PR #1) so a BYOL Autonomous Database can be
+# Standard Edition 2 — the SaaS product's licensing. The estate's per-tenant
+# database primitive (XOracle, crossplane-platform) renders AutonomousDatabase
+# CRs onto the tenant cluster through this operator.
+#
+# cert-manager is a prerequisite (webhook serving cert + CA injection): the
+# XCluster item runs at a later sync wave than its cert-manager item.
+resources:
+  - ../../config/default
+
+# The image is this fork's OWN release (the estate builds it as a Release
+# asset and mirrors it into each cluster's OCIR compartment), never the
+# upstream dev ref config/manager carries. The ref here is an ENV-GENERIC
+# PLACEHOLDER — the OCIR repo path is per-environment (…-<environment>) and
+# the consumer pins a digest, so the XCluster platform item's kustomize patch
+# replaces the whole ref; the placeholder degrades loudly (ImagePullBackOff
+# on a repo that does not exist) rather than pulling anything real.
+images:
+  - name: lin.ocir.io/intsanjaysingh/operator/mmalvezz_lrest_2.2
+    newName: iad.ocir.io/idfkrwsy40sd/oracle-database-operator/oracle-database-operator
+    newTag: env-generic-placeholder
+
+patches:
+  # Right-size for the small-node tenant clusters (A1.Flex 1-OCPU rungs): a
+  # single replica (leader election stays on, harmless), and requests that
+  # match an idle operator rather than the upstream 400m/400Mi guaranteed
+  # class that the 840m-allocatable nodes cannot spare.
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: oracle-database-operator-controller-manager
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests
+        value:
+          cpu: 100m
+          memory: 200Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/limits
+        value:
+          cpu: 500m
+          memory: 400Mi
+      # Cluster-wide watch: the tenant primitives (XOracle → AutonomousDatabase
+      # CRs) land in per-tenant namespaces that do not exist when the operator
+      # is installed, so the upstream default (watch only the operator's own
+      # namespace via the downward API) would see none of them. An empty
+      # WATCH_NAMESPACE is the operator's documented all-namespaces mode.
+      - op: replace
+        path: /spec/template/spec/containers/0/env/0
+        value:
+          name: WATCH_NAMESPACE
+          value: ""
+      # The estate mirror is digest-preserving and the consumer pins a digest
+      # (the XCluster item's kustomize patch replaces the image ref); Always
+      # would re-resolve the same digest on every restart for nothing.
+      - op: replace
+        path: /spec/template/spec/containers/0/imagePullPolicy
+        value: IfNotPresent
