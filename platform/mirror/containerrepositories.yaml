@@ -1,0 +1,25 @@
+---
+# XContainerRepository claim for the mirror target (fact-injection): the claim
+# names only its repo path; the composition (crossplane-platform) injects
+# compartmentOcid and the -<environment> displayName suffix from the
+# cluster-facts EnvironmentConfig, so no per-cluster patch is needed. The
+# repo is pre-created here (never create-on-push).
+#
+# WRAPPED IN AN OptionalManifests CARRIER (iak ADR-075): the
+# XContainerRepository CRD arrives with the crossplane-platform app at
+# runtime; the carrier applies clean immediately and the optional-manifests
+# operator materializes the claim once the CRD is served.
+apiVersion: resources.sunsofterp.com/v1
+kind: OptionalManifests
+metadata:
+  name: repo-oracle-database-operator
+  namespace: oracle-database-operator-system
+spec:
+  manifests:
+    - apiVersion: registry.platform.sunsofterp.com/v1alpha1
+      kind: XContainerRepository
+      metadata:
+        name: repo-oracle-database-operator
+        namespace: oracle-database-operator-system
+      spec:
+        repositoryPath: oracle-database-operator/oracle-database-operator

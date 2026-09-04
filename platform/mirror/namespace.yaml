@@ -1,0 +1,10 @@
+---
+# The oracle-database-operator-system namespace on the ORCHESTRATOR — holds
+# only the supply-side carriers below (the operator itself runs on the tenant
+# clusters as an XCluster platform item, where platform/base ships the same
+# namespace). Same name on both clusters by design: one project boundary
+# (iak AppProject oracle-database-operator-system, project == namespace).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: oracle-database-operator-system
