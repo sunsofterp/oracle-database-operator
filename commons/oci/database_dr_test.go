@@ -54,8 +54,10 @@ const (
 )
 
 func TestIsCrossRegionDRPeer(t *testing.T) {
+	fullDR := &dbv4.DisasterRecoverySpec{SourceId: common.String(testPrimaryOCID), Type: database.DisasterRecoveryConfigurationDisasterRecoveryTypeBackupBased}
 	cases := []struct {
 		name string
+		id   *string
 		dr   *dbv4.DisasterRecoverySpec
 		want bool
 	}{
@@ -63,12 +65,15 @@ func TestIsCrossRegionDRPeer(t *testing.T) {
 		{name: "disasterRecovery without sourceId", dr: &dbv4.DisasterRecoverySpec{Type: database.DisasterRecoveryConfigurationDisasterRecoveryTypeAdg}, want: false},
 		{name: "empty sourceId", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String("")}, want: false},
 		{name: "sourceId set without type", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String(testPrimaryOCID)}, want: false},
-		{name: "sourceId and type set", dr: &dbv4.DisasterRecoverySpec{SourceId: common.String(testPrimaryOCID), Type: database.DisasterRecoveryConfigurationDisasterRecoveryTypeBackupBased}, want: true},
+		{name: "sourceId and type set", dr: fullDR, want: true},
+		{name: "sourceId and type set but id already populated", id: common.String(testStandbyOCID), dr: fullDR, want: false},
+		{name: "sourceId and type set with empty id", id: common.String(""), dr: fullDR, want: true},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			adb := &dbv4.AutonomousDatabase{}
+			adb.Spec.Details.Id = tc.id
 			adb.Spec.Details.DisasterRecovery = tc.dr
 			if got := isCrossRegionDRPeer(adb); got != tc.want {
 				t.Fatalf("isCrossRegionDRPeer() = %v, want %v", got, tc.want)

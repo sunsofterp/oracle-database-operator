@@ -49,9 +49,15 @@ import (
 
 // isCrossRegionDRPeer reports whether the CR asks for this database to be
 // created as the cross-region disaster-recovery peer of another database:
-// both sourceId and type must be set (validateDisasterRecovery rejects the
-// half-specified case before this is consulted).
+// the CR must not already name a database (spec.details.id — once the peer
+// exists the operator writes its OCID back and disasterRecovery stays as a
+// record of how it was created), and both sourceId and type must be set
+// (validateDisasterRecovery rejects the half-specified case before this is
+// consulted).
 func isCrossRegionDRPeer(adb *dbv4.AutonomousDatabase) bool {
+	if id := adb.Spec.Details.Id; id != nil && *id != "" {
+		return false
+	}
 	dr := adb.Spec.Details.DisasterRecovery
 	return dr != nil && dr.SourceId != nil && *dr.SourceId != "" && dr.Type != ""
 }
