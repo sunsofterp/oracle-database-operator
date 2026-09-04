@@ -1,0 +1,19 @@
+---
+# Verbatim copy of upstream's rbac/cluster-role-binding.yaml (the binding its
+# README prescribes for the optional cluster-scoped mode). config/rbac only
+# binds the manager ClusterRole with a NAMESPACED RoleBinding, so with the
+# cluster-wide watch platform/base configures (WATCH_NAMESPACE=""), the manager
+# would have no permissions outside its own namespace. Keep in lockstep with
+# upstream's file on rebases (names are the post-namePrefix ones).
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oracle-database-operator-oracle-database-operator-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: oracle-database-operator-manager-role
+subjects:
+  - kind: ServiceAccount
+    name: oracle-database-operator-controller-manager
+    namespace: oracle-database-operator-system
