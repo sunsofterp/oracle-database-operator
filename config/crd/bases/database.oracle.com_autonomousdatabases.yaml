@@ -130,6 +130,21 @@ spec:
                     - APEX
                     - LH
                     type: string
+                  disasterRecovery:
+                    properties:
+                      isReplicateAutomaticBackups:
+                        type: boolean
+                      sourceId:
+                        type: string
+                      type:
+                        enum:
+                        - BACKUP_BASED
+                        - ADG
+                        type: string
+                    required:
+                    - sourceId
+                    - type
+                    type: object
                   displayName:
                     type: string
                   freeformTags:
@@ -157,6 +172,8 @@ spec:
                     type: array
                   ocpuCount:
                     type: number
+                  peerDbId:
+                    type: string
                   privateEndpointLabel:
                     type: string
                   subnetId:
@@ -224,6 +241,21 @@ spec:
                     - APEX
                     - LH
                     type: string
+                  disasterRecovery:
+                    properties:
+                      isReplicateAutomaticBackups:
+                        type: boolean
+                      sourceId:
+                        type: string
+                      type:
+                        enum:
+                        - BACKUP_BASED
+                        - ADG
+                        type: string
+                    required:
+                    - sourceId
+                    - type
+                    type: object
                   displayName:
                     type: string
                   freeformTags:
@@ -253,6 +285,8 @@ spec:
                     type: array
                   ocpuCount:
                     type: number
+                  peerDbId:
+                    type: string
                   privateEndpointLabel:
                     type: string
                   subnetId:
@@ -352,7 +386,17 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              dataguardRegionType:
+                type: string
+              disasterRecoveryRegionType:
+                type: string
               lifecycleState:
+                type: string
+              peerDbIds:
+                items:
+                  type: string
+                type: array
+              role:
                 type: string
               timeCreated:
                 type: string
@@ -477,6 +521,21 @@ spec:
                     - APEX
                     - LH
                     type: string
+                  disasterRecovery:
+                    properties:
+                      isReplicateAutomaticBackups:
+                        type: boolean
+                      sourceId:
+                        type: string
+                      type:
+                        enum:
+                        - BACKUP_BASED
+                        - ADG
+                        type: string
+                    required:
+                    - sourceId
+                    - type
+                    type: object
                   displayName:
                     type: string
                   freeformTags:
@@ -504,6 +563,8 @@ spec:
                     type: array
                   ocpuCount:
                     type: number
+                  peerDbId:
+                    type: string
                   privateEndpointLabel:
                     type: string
                   subnetId:
@@ -571,6 +632,21 @@ spec:
                     - APEX
                     - LH
                     type: string
+                  disasterRecovery:
+                    properties:
+                      isReplicateAutomaticBackups:
+                        type: boolean
+                      sourceId:
+                        type: string
+                      type:
+                        enum:
+                        - BACKUP_BASED
+                        - ADG
+                        type: string
+                    required:
+                    - sourceId
+                    - type
+                    type: object
                   displayName:
                     type: string
                   freeformTags:
@@ -600,6 +676,8 @@ spec:
                     type: array
                   ocpuCount:
                     type: number
+                  peerDbId:
+                    type: string
                   privateEndpointLabel:
                     type: string
                   subnetId:
@@ -699,7 +777,17 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              dataguardRegionType:
+                type: string
+              disasterRecoveryRegionType:
+                type: string
               lifecycleState:
+                type: string
+              peerDbIds:
+                items:
+                  type: string
+                type: array
+              role:
                 type: string
               timeCreated:
                 type: string

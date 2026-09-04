@@ -135,7 +135,29 @@ func (d *DatabaseService) readACDOCID(ctx context.Context, acd *dbv4.AcdSpec, na
 }
 
 // CreateAutonomousDatabase sends a request to OCI to provision a database and returns the AutonomousDatabase OCID.
+//
+// When spec.details.disasterRecovery.sourceId is set the database is created as
+// the cross-region disaster-recovery peer of that source instead of a new
+// standalone database. The peer takes its admin password from the primary, so
+// spec.details.adminPassword is not read in that case.
 func (d *DatabaseService) CreateAutonomousDatabase(ctx context.Context, adb *dbv4.AutonomousDatabase) (resp database.CreateAutonomousDatabaseResponse, err error) {
+	if err := validateDisasterRecovery(adb); err != nil {
+		return resp, err
+	}
+	if isCrossRegionDRPeer(adb) {
+		d.logger.WithName("createADB").Info("Creating the Autonomous Database as a cross-region disaster-recovery peer",
+			"sourceId", *adb.Spec.Details.DisasterRecovery.SourceId)
+
+		retryPolicy := common.DefaultRetryPolicy()
+		request := database.CreateAutonomousDatabaseRequest{
+			CreateAutonomousDatabaseDetails: crossRegionDRDetails(adb),
+			RequestMetadata: common.RequestMetadata{
+				RetryPolicy: &retryPolicy,
+			},
+		}
+		return d.dbClient.CreateAutonomousDatabase(ctx, request)
+	}
+
 	adminPassword, err := d.readPassword(ctx, adb.Namespace, adb.Spec.Details.AdminPassword)
 	if err != nil {
 		return resp, err
@@ -469,27 +491,15 @@ func (d *DatabaseService) CreateAutonomousDatabaseClone(ctx context.Context, adb
 }
 
 // SwitchoverAutonomousDatabase runs a switchover operation for Data Guard-enabled ADB.
-func (d *DatabaseService) SwitchoverAutonomousDatabase(ctx context.Context, adbOCID string) (database.SwitchoverAutonomousDatabaseResponse, error) {
-	retryPolicy := common.DefaultRetryPolicy()
-
-	request := database.SwitchoverAutonomousDatabaseRequest{
-		AutonomousDatabaseId: common.String(adbOCID),
-		RequestMetadata: common.RequestMetadata{
-			RetryPolicy: &retryPolicy,
-		},
-	}
-	return d.dbClient.SwitchoverAutonomousDatabase(ctx, request)
+// peerDbId selects the peer for a cross-region pair and may be empty for a
+// local (same-region) Data Guard switchover.
+func (d *DatabaseService) SwitchoverAutonomousDatabase(ctx context.Context, adbOCID string, peerDbId string) (database.SwitchoverAutonomousDatabaseResponse, error) {
+	return d.dbClient.SwitchoverAutonomousDatabase(ctx, switchoverRequest(adbOCID, peerDbId))
 }
 
 // FailoverAutonomousDatabase runs a failover operation for Data Guard-enabled ADB.
-func (d *DatabaseService) FailoverAutonomousDatabase(ctx context.Context, adbOCID string) (database.FailOverAutonomousDatabaseResponse, error) {
-	retryPolicy := common.DefaultRetryPolicy()
-
-	request := database.FailOverAutonomousDatabaseRequest{
-		AutonomousDatabaseId: common.String(adbOCID),
-		RequestMetadata: common.RequestMetadata{
-			RetryPolicy: &retryPolicy,
-		},
-	}
-	return d.dbClient.FailOverAutonomousDatabase(ctx, request)
+// peerDbId selects the peer for a cross-region pair and may be empty for a
+// local (same-region) Data Guard failover.
+func (d *DatabaseService) FailoverAutonomousDatabase(ctx context.Context, adbOCID string, peerDbId string) (database.FailOverAutonomousDatabaseResponse, error) {
+	return d.dbClient.FailOverAutonomousDatabase(ctx, failoverRequest(adbOCID, peerDbId))
 }

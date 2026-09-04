@@ -104,6 +104,34 @@ type AutonomousDatabaseBase struct {
 	IsMtlsConnectionRequired *bool    `json:"isMtlsConnectionRequired,omitempty"`
 
 	FreeformTags map[string]string `json:"freeformTags,omitempty"`
+
+	// PeerDbId is the OCID of the Data Guard / disaster-recovery peer used by
+	// the Switchover and Failover actions. A cross-region switchover must be
+	// invoked on the STANDBY database (spec.details.id) with peerDbId set to
+	// the PRIMARY's OCID; OCI rejects the request when it is sent to the primary.
+	PeerDbId *string `json:"peerDbId,omitempty"`
+
+	// DisasterRecovery, when set on a CR that has no spec.details.id, makes the
+	// operator create this database as the cross-region disaster-recovery PEER of
+	// SourceId (CreateCrossRegionDisasterRecoveryDetails) instead of a new
+	// standalone database. The OCI client must target the PEER's (this CR's)
+	// region — see spec.ociConfig / the region ConfigMap.
+	DisasterRecovery *DisasterRecoverySpec `json:"disasterRecovery,omitempty"`
+}
+
+// DisasterRecoverySpec describes the cross-region disaster-recovery peer to create,
+// corresponding to oci-go-sdk/database/CreateCrossRegionDisasterRecoveryDetails.
+type DisasterRecoverySpec struct {
+	// SourceId is the OCID of the primary (source) Autonomous Database.
+	// +kubebuilder:validation:Required
+	SourceId *string `json:"sourceId"`
+	// Type selects the disaster-recovery technology: Autonomous Data Guard (ADG)
+	// or backup-based (BACKUP_BASED). Required with SourceId.
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum:="BACKUP_BASED";"ADG"
+	Type database.DisasterRecoveryConfigurationDisasterRecoveryTypeEnum `json:"type"`
+	// IsReplicateAutomaticBackups replicates the primary's automatic backups to the peer region.
+	IsReplicateAutomaticBackups *bool `json:"isReplicateAutomaticBackups,omitempty"`
 }
 
 /************************
@@ -155,6 +183,14 @@ type AutonomousDatabaseStatus struct {
 	WalletExpiringDate string `json:"walletExpiringDate,omitempty"`
 	// Connection Strings of the ADB
 	AllConnectionStrings []ConnectionStringProfile `json:"allConnectionStrings,omitempty"`
+	// Data Guard / disaster-recovery role of the ADB (PRIMARY, STANDBY, ...)
+	Role string `json:"role,omitempty"`
+	// OCIDs of the Data Guard / disaster-recovery peers of the ADB
+	PeerDbIds []string `json:"peerDbIds,omitempty"`
+	// Whether the ADB is the PRIMARY or the REMOTE side of a cross-region disaster-recovery pair
+	DisasterRecoveryRegionType string `json:"disasterRecoveryRegionType,omitempty"`
+	// Whether the ADB is in the PRIMARY_DG_REGION or the REMOTE_STANDBY_DG_REGION of a cross-region Data Guard pair
+	DataguardRegionType string `json:"dataguardRegionType,omitempty"`
 	// +patchMergeKey=type
 	// +patchStrategy=merge
 	// +listType=map

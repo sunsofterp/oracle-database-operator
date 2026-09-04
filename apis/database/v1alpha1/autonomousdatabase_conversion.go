@@ -14,6 +14,14 @@ func (src *AutonomousDatabase) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Action = src.Spec.Action
 
 	// Details
+	dst.Spec.Details.PeerDbId = src.Spec.Details.PeerDbId
+	if src.Spec.Details.DisasterRecovery != nil {
+		dst.Spec.Details.DisasterRecovery = &v4.DisasterRecoverySpec{
+			SourceId:                    src.Spec.Details.DisasterRecovery.SourceId,
+			Type:                        src.Spec.Details.DisasterRecovery.Type,
+			IsReplicateAutomaticBackups: src.Spec.Details.DisasterRecovery.IsReplicateAutomaticBackups,
+		}
+	}
 	dst.Spec.Details.Id = src.Spec.Details.Id
 	dst.Spec.Details.CompartmentId = src.Spec.Details.CompartmentId
 	dst.Spec.Details.AutonomousContainerDatabase.K8sAcd.Name = src.Spec.Details.AutonomousContainerDatabase.K8sAcd.Name
@@ -85,6 +93,10 @@ func (src *AutonomousDatabase) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Status.LifecycleState = src.Status.LifecycleState
 	dst.Status.TimeCreated = src.Status.TimeCreated
 	dst.Status.WalletExpiringDate = src.Status.WalletExpiringDate
+	dst.Status.Role = src.Status.Role
+	dst.Status.PeerDbIds = src.Status.PeerDbIds
+	dst.Status.DisasterRecoveryRegionType = src.Status.DisasterRecoveryRegionType
+	dst.Status.DataguardRegionType = src.Status.DataguardRegionType
 
 	// convert status.allConnectionStrings
 	if src.Status.AllConnectionStrings != nil {
@@ -123,6 +135,14 @@ func (dst *AutonomousDatabase) ConvertFrom(srcRaw conversion.Hub) error { //noli
 	dst.Spec.Action = src.Spec.Action
 
 	// Details
+	dst.Spec.Details.PeerDbId = src.Spec.Details.PeerDbId
+	if src.Spec.Details.DisasterRecovery != nil {
+		dst.Spec.Details.DisasterRecovery = &DisasterRecoverySpec{
+			SourceId:                    src.Spec.Details.DisasterRecovery.SourceId,
+			Type:                        src.Spec.Details.DisasterRecovery.Type,
+			IsReplicateAutomaticBackups: src.Spec.Details.DisasterRecovery.IsReplicateAutomaticBackups,
+		}
+	}
 	dst.Spec.Details.Id = src.Spec.Details.Id
 	dst.Spec.Details.CompartmentId = src.Spec.Details.CompartmentId
 	dst.Spec.Details.AutonomousContainerDatabase.K8sAcd.Name = src.Spec.Details.AutonomousContainerDatabase.K8sAcd.Name
@@ -194,6 +214,10 @@ func (dst *AutonomousDatabase) ConvertFrom(srcRaw conversion.Hub) error { //noli
 	dst.Status.LifecycleState = src.Status.LifecycleState
 	dst.Status.TimeCreated = src.Status.TimeCreated
 	dst.Status.WalletExpiringDate = src.Status.WalletExpiringDate
+	dst.Status.Role = src.Status.Role
+	dst.Status.PeerDbIds = src.Status.PeerDbIds
+	dst.Status.DisasterRecoveryRegionType = src.Status.DisasterRecoveryRegionType
+	dst.Status.DataguardRegionType = src.Status.DataguardRegionType
 
 	// convert status.allConnectionStrings
 	if src.Status.AllConnectionStrings != nil {
