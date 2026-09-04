@@ -1,0 +1,15 @@
+# The DbcsSystem CRD on the ORCHESTRATOR — CRD only, no operator.
+# XOracleSystem substrate prerequisite (crossplane-platform #114): the
+# composition wraps a DbcsSystem in a kubernetes.m Object MR that
+# materializes on the tenant cluster (where this fork runs as a platform
+# item), but Crossplane's realtime-composition informers watch the wrapped
+# GVK on the LOCAL API server — the kind must be served here even though
+# nothing reconciles it here. Only the one CRD the compositions wrap: the
+# operator's full CRD set (config/crd) stays on the tenant clusters.
+# Companion: iak cluster-rbac foreign-GVK read grant for
+# database.oracle.com/dbcssystems (ADR-067). Same pattern as
+# cloudnative-pg's overlays/orchestrator-crds.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../config/crd/bases/database.oracle.com_dbcssystems.yaml
