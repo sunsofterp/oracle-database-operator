@@ -48,6 +48,14 @@ jobs:
           echo "Rendered CRDs:"
           grep -E '^  name: ' dist/crds.yaml | sort || true
 
+      - name: Verify the orchestrator-crds extract is current
+        run: |
+          set -euo pipefail
+          make orchestrator-crds >/dev/null
+          git checkout -- config/crd/bases/observability.oracle.com_databaseobservers.yaml || true
+          git diff --exit-code -- platform/overlays/orchestrator-crds \
+            || { echo "platform/overlays/orchestrator-crds is stale: run make orchestrator-crds and commit"; exit 1; }
+
       - name: Generate checksums
         run: |
           set -euo pipefail
