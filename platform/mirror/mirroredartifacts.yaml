@@ -30,9 +30,12 @@ spec:
         namespace: oracle-database-operator-system
       spec:
         type: oci
-        # v2.2.0-sunsofterp.1 = upstream v2.2.0 + AutonomousDatabase
-        # spec.details.databaseEdition (#1) + the estate release/platform tree (#2).
-        source: github-release://sunsofterp/oracle-database-operator@v2.2.0-sunsofterp.1/oracle-database-operator-v2.2.0-sunsofterp.1.oci.tar
-        sourceDigest: sha256:538db1d11185ba59ee31dba9d159f026d178653a6586f60438a9df49bf176a1e
+        # v2.2.0-sunsofterp.2 = sunsofterp.1 + AutonomousDatabase cross-region
+        # disaster recovery (#4: DR-peer create, peerDbId on Switchover/Failover,
+        # DR status) + the cluster-scoped ClusterRoleBinding in platform/base (#5).
+        # Prior v2.2.0-sunsofterp.1 = upstream v2.2.0 + spec.details.databaseEdition
+        # (#1) + the estate release/platform tree (#2); digest sha256:538db1d1….
+        source: github-release://sunsofterp/oracle-database-operator@v2.2.0-sunsofterp.2/oracle-database-operator-v2.2.0-sunsofterp.2.oci.tar
+        sourceDigest: sha256:918535c289800eab7aa4aa33cfa875a4d090ad99e5c6d2ea8ec975dbe876dd18
         target: iad.ocir.io/idfkrwsy40sd/oracle-database-operator/oracle-database-operator:env-generic-placeholder
         interval: 10m
