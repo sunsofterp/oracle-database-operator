@@ -22,6 +22,7 @@ func (src *AutonomousDatabase) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Details.DbName = src.Spec.Details.DbName
 	dst.Spec.Details.DbWorkload = src.Spec.Details.DbWorkload
 	dst.Spec.Details.LicenseModel = src.Spec.Details.LicenseModel
+	dst.Spec.Details.DatabaseEdition = src.Spec.Details.DatabaseEdition
 	dst.Spec.Details.DbVersion = src.Spec.Details.DbVersion
 	dst.Spec.Details.DataStorageSizeInTBs = src.Spec.Details.DataStorageSizeInTBs
 	dst.Spec.Details.CpuCoreCount = src.Spec.Details.CpuCoreCount
@@ -49,6 +50,7 @@ func (src *AutonomousDatabase) ConvertTo(dstRaw conversion.Hub) error {
 	dst.Spec.Clone.DbName = src.Spec.Clone.DbName
 	dst.Spec.Clone.DbWorkload = src.Spec.Clone.DbWorkload
 	dst.Spec.Clone.LicenseModel = src.Spec.Clone.LicenseModel
+	dst.Spec.Clone.DatabaseEdition = src.Spec.Clone.DatabaseEdition
 	dst.Spec.Clone.DbVersion = src.Spec.Clone.DbVersion
 	dst.Spec.Clone.DataStorageSizeInTBs = src.Spec.Clone.DataStorageSizeInTBs
 	dst.Spec.Clone.CpuCoreCount = src.Spec.Clone.CpuCoreCount
@@ -129,6 +131,7 @@ func (dst *AutonomousDatabase) ConvertFrom(srcRaw conversion.Hub) error { //noli
 	dst.Spec.Details.DbName = src.Spec.Details.DbName
 	dst.Spec.Details.DbWorkload = src.Spec.Details.DbWorkload
 	dst.Spec.Details.LicenseModel = src.Spec.Details.LicenseModel
+	dst.Spec.Details.DatabaseEdition = src.Spec.Details.DatabaseEdition
 	dst.Spec.Details.DbVersion = src.Spec.Details.DbVersion
 	dst.Spec.Details.DataStorageSizeInTBs = src.Spec.Details.DataStorageSizeInTBs
 	dst.Spec.Details.CpuCoreCount = src.Spec.Details.CpuCoreCount
@@ -156,6 +159,7 @@ func (dst *AutonomousDatabase) ConvertFrom(srcRaw conversion.Hub) error { //noli
 	dst.Spec.Clone.DbName = src.Spec.Clone.DbName
 	dst.Spec.Clone.DbWorkload = src.Spec.Clone.DbWorkload
 	dst.Spec.Clone.LicenseModel = src.Spec.Clone.LicenseModel
+	dst.Spec.Clone.DatabaseEdition = src.Spec.Clone.DatabaseEdition
 	dst.Spec.Clone.DbVersion = src.Spec.Clone.DbVersion
 	dst.Spec.Clone.DataStorageSizeInTBs = src.Spec.Clone.DataStorageSizeInTBs
 	dst.Spec.Clone.CpuCoreCount = src.Spec.Clone.CpuCoreCount

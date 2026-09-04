@@ -80,10 +80,12 @@ type AutonomousDatabaseBase struct {
 	// +kubebuilder:validation:Enum:="OLTP";"DW";"AJD";"APEX";"LH"
 	DbWorkload database.AutonomousDatabaseDbWorkloadEnum `json:"dbWorkload,omitempty"`
 	// +kubebuilder:validation:Enum:="LICENSE_INCLUDED";"BRING_YOUR_OWN_LICENSE"
-	LicenseModel         database.AutonomousDatabaseLicenseModelEnum `json:"licenseModel,omitempty"`
-	DbVersion            *string                                     `json:"dbVersion,omitempty"`
-	DataStorageSizeInTBs *int                                        `json:"dataStorageSizeInTBs,omitempty"`
-	CpuCoreCount         *int                                        `json:"cpuCoreCount,omitempty"`
+	LicenseModel database.AutonomousDatabaseLicenseModelEnum `json:"licenseModel,omitempty"`
+	// +kubebuilder:validation:Enum:="STANDARD_EDITION";"ENTERPRISE_EDITION"
+	DatabaseEdition      database.AutonomousDatabaseDatabaseEditionEnum `json:"databaseEdition,omitempty"`
+	DbVersion            *string                                        `json:"dbVersion,omitempty"`
+	DataStorageSizeInTBs *int                                           `json:"dataStorageSizeInTBs,omitempty"`
+	CpuCoreCount         *int                                           `json:"cpuCoreCount,omitempty"`
 	// +kubebuilder:validation:Enum:="ECPU";"OCPU"
 	ComputeModel         database.AutonomousDatabaseComputeModelEnum `json:"computeModel,omitempty"`
 	ComputeCount         *float32                                    `json:"computeCount,omitempty"`
