@@ -582,7 +582,7 @@ func (r *AutonomousDatabaseReconciler) performOperation(
 	case "Switchover":
 		l.Info("Sending SwitchoverAutonomousDatabase request to OCI")
 
-		resp, err := dbService.SwitchoverAutonomousDatabase(ctx, *adb.Spec.Details.Id)
+		resp, err := dbService.SwitchoverAutonomousDatabase(ctx, *adb.Spec.Details.Id, peerDbId(adb))
 		if err != nil {
 			return false, err
 		}
@@ -594,7 +594,7 @@ func (r *AutonomousDatabaseReconciler) performOperation(
 	case "Failover":
 		l.Info("Sending FailOverAutonomousDatabase request to OCI")
 
-		resp, err := dbService.FailoverAutonomousDatabase(ctx, *adb.Spec.Details.Id)
+		resp, err := dbService.FailoverAutonomousDatabase(ctx, *adb.Spec.Details.Id, peerDbId(adb))
 		if err != nil {
 			return false, err
 		}
@@ -610,6 +610,14 @@ func (r *AutonomousDatabaseReconciler) performOperation(
 		adb.Spec.Action = ""
 		return true, errors.New("Unknown action: " + adb.Spec.Action)
 	}
+}
+
+// peerDbId returns spec.details.peerDbId, or "" when it is unset.
+func peerDbId(adb *dbv4.AutonomousDatabase) string {
+	if adb.Spec.Details.PeerDbId == nil {
+		return ""
+	}
+	return *adb.Spec.Details.PeerDbId
 }
 
 func (r *AutonomousDatabaseReconciler) createAutonomousDatabase(ctx context.Context, logger logr.Logger, dbService oci.DatabaseService, adb *dbv4.AutonomousDatabase) error {

@@ -28,6 +28,7 @@ For operator installation, see the [main operator README](../../README.md). Befo
 - [Stop/Start/Terminate](#stopstartterminate)
 - [Delete the resource](#delete-the-resource)
 - [Clone an existing Autonomous Database](#clone-an-existing-autonomous-database)
+- [Create a cross-region disaster-recovery peer](#create-a-cross-region-disaster-recovery-peer)
 - [Switchover an existing Autonomous Database](#switchover-an-existing-autonomous-database)
 - [Manually failover an existing Autonomous Database](#manually-failover-an-existing-autonomous-database)
 - [Debugging and troubleshooting](#debugging-and-troubleshooting)
@@ -169,6 +170,10 @@ Typical status fields include:
 - `status.timeCreated`
 - `status.walletExpiringDate`
 - `status.allConnectionStrings`
+- `status.role` — the Data Guard / disaster-recovery role reported by OCI (`PRIMARY`, `STANDBY`, ...); empty for a database without a peer
+- `status.peerDbIds` — the OCIDs of the database's Data Guard / disaster-recovery peers
+- `status.disasterRecoveryRegionType` — `PRIMARY` or `REMOTE`, the side of a cross-region disaster-recovery pair this database is on
+- `status.dataguardRegionType` — `PRIMARY_DG_REGION` or `REMOTE_STANDBY_DG_REGION` for a cross-region Autonomous Data Guard pair
 - `status.conditions`
 
 ## Provision an Autonomous Database
@@ -240,6 +245,11 @@ To provision an Autonomous Database that will map objects in your cluster, compl
     | `spec.details.autonomousContainerDatabase.k8sACD.name` | string | The **name** of the K8s Autonomous Container Database resource | No |
     | `spec.details.autonomousContainerDatabase.ociACD.id` | string | The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm). | No |
     | `spec.details.freeformTags` | dictionary | Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tag](https://docs.cloud.oracle.com/Content/General/Concepts/resourcetags.htm).<br><br> Example:<br> `freeformTags:`<br> &nbsp;&nbsp;&nbsp;&nbsp;`key1: value1`<br> &nbsp;&nbsp;&nbsp;&nbsp;`key2: value2`| No |
+    | `spec.details.peerDbId` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the Data Guard / disaster-recovery peer, used by the `Switchover` and `Failover` actions. See [Switchover an existing Autonomous Database](#switchover-an-existing-autonomous-database). Not used when provisioning. | No |
+    | `spec.details.disasterRecovery` | dictionary | When set (together with `sourceId`) on a resource that has no `spec.details.id`, the operator creates this database as the **cross-region disaster-recovery peer** of `sourceId` instead of a new standalone database. See [Create a cross-region disaster-recovery peer](#create-a-cross-region-disaster-recovery-peer). | No |
+    | `spec.details.disasterRecovery.sourceId` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the primary (source) Autonomous Database in the other region. | Conditional |
+    | `spec.details.disasterRecovery.type` | string | The disaster-recovery technology for the peer. Accepted values are: `ADG` (Autonomous Data Guard) and `BACKUP_BASED`. | Conditional |
+    | `spec.details.disasterRecovery.isReplicateAutomaticBackups` | boolean | Whether the primary's automatic backups are replicated to the peer region. | No |
     | `spec.ociConfig` | dictionary | Not required when the Operator is authorized with [Instance Principal](./ADB_PREREQUISITES.md#authorized-with-instance-principal). Otherwise, you will need the values from the [Authorized with API Key Authentication](./ADB_PREREQUISITES.md#authorized-with-api-key-authentication) section. | Conditional |
     | `spec.ociConfig.configMapName` | string | Name of the ConfigMap that holds the local OCI configuration | Conditional |
     | `spec.ociConfig.secretName`| string | Name of the K8s Secret that holds the private key value | Conditional |
@@ -705,6 +715,8 @@ To clone an existing Autonomous Database, complete these steps:
     | `spec.clone.autonomousContainerDatabase.k8sACD.name` | string | The **name** of the K8s Autonomous Container Database resource | No |
     | `spec.clone.autonomousContainerDatabase.ociACD.id` | string | The Autonomous Container Database [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm). | No |
     | `spec.clone.freeformTags` | dictionary | Free-form tags for this resource. Each tag is a simple key-value pair with no predefined name, type, or namespace. For more information, see [Resource Tag](https://docs.cloud.oracle.com/Content/General/Concepts/resourcetags.htm).<br><br> Example:<br> `freeformTags:`<br> &nbsp;&nbsp;&nbsp;&nbsp;`key1: value1`<br> &nbsp;&nbsp;&nbsp;&nbsp;`key2: value2`| No |
+    | `spec.clone.peerDbId` | string | Present because `spec.clone` shares its schema with `spec.details`; ignored by the `Clone` action. | No |
+    | `spec.clone.disasterRecovery` | dictionary | Present because `spec.clone` shares its schema with `spec.details`; ignored by the `Clone` action. To create a cross-region peer use `spec.details.disasterRecovery` on a new resource instead. | No |
     | `spec.ociConfig` | dictionary | Not required when the Operator is authorized with [Instance Principal](./ADB_PREREQUISITES.md#authorized-with-instance-principal). Otherwise, you will need the values from the [Authorized with API Key Authentication](./ADB_PREREQUISITES.md#authorized-with-api-key-authentication) section. | Conditional |
     | `spec.ociConfig.configMapName` | string | Name of the ConfigMap that holds the local OCI configuration | Conditional |
     | `spec.ociConfig.secretName`| string | Name of the K8s Secret that holds the private key value | Conditional |
@@ -750,6 +762,66 @@ To clone an existing Autonomous Database, complete these steps:
 
 Now, you can verify that a cloned database with name "ClonedADB" is being provisioned on the Cloud Console.
 
+## Create a cross-region disaster-recovery peer
+
+An Autonomous Database Serverless can be protected by a peer in **another OCI region**, using either Autonomous Data Guard (`ADG`) or backup-based disaster recovery (`BACKUP_BASED`). The operator creates such a peer when a new `AutonomousDatabase` resource (one with no `spec.details.id`) carries `spec.details.disasterRecovery` with a `sourceId`: instead of provisioning a standalone database it sends OCI a `CreateCrossRegionDisasterRecoveryDetails` request for the given source. After OCI accepts the request the resource is bound to the new peer exactly like a provisioned database, and `status.role`, `status.peerDbIds`, `status.disasterRecoveryRegionType` and `status.dataguardRegionType` show the live Data Guard facts of both this resource and, once synced, the resource that represents the primary.
+
+> Note: the peer takes its ADMIN password, workload type and database version from the primary, so `spec.details.adminPassword` is not read for a disaster-recovery peer. Compute, storage, license/edition and network-access fields in `spec.details` are sent to OCI for the peer; the remaining `spec.details` fields are ignored on creation.
+
+### Targeting another region
+
+OCI requires the create request to be sent to the **peer's** region, not the primary's. The operator sends every request for a resource to the region of the OCI credentials that resource references, so a cross-region peer simply references a ConfigMap whose `region` key is the peer's region:
+
+- **API key authentication**: create a second ConfigMap (see [Authorized with API Key Authentication](./ADB_PREREQUISITES.md#authorized-with-api-key-authentication)) whose `region` is the peer's region and reference it from `spec.ociConfig.configMapName`; the same private-key Secret can be reused.
+- **OKE workload identity**: reference a ConfigMap whose `region` key is the peer's region. The workload identity must be authorized in that region (a policy written at the tenancy level applies in every subscribed region).
+- **Instance principal**: the region cannot be overridden; the request goes to the region of the node the operator runs on. Use one of the ConfigMap-backed methods above for a cross-region peer.
+
+The same rule applies to every later action on the peer resource (`Sync`, `Stop`, `Start`, `Switchover`, ...): keep the peer resource pointed at the peer-region ConfigMap.
+
+1. Add the following fields to a new AutonomousDatabase resource definition:
+    | Attribute | Type | Description | Required? |
+    |----|----|----|----|
+    | `spec.details.compartmentId` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the compartment in which the peer is created. | Yes |
+    | `spec.details.displayName` | string | The display name of the peer. | Yes |
+    | `spec.details.disasterRecovery.sourceId` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the primary Autonomous Database in the other region. | Yes |
+    | `spec.details.disasterRecovery.type` | string | `ADG` or `BACKUP_BASED`. | Yes |
+    | `spec.details.disasterRecovery.isReplicateAutomaticBackups` | boolean | Whether the primary's automatic backups are replicated to the peer region. | No |
+    | `spec.details.dbName`, `spec.details.computeModel`, `spec.details.computeCount`, `spec.details.ocpuCount`, `spec.details.cpuCoreCount`, `spec.details.dataStorageSizeInTBs`, `spec.details.licenseModel`, `spec.details.databaseEdition`, `spec.details.isAccessControlEnabled`, `spec.details.whitelistedIps`, `spec.details.subnetId`, `spec.details.nsgIds`, `spec.details.privateEndpointLabel`, `spec.details.isMtlsConnectionRequired`, `spec.details.freeformTags` | | Optional peer properties; same meaning as in [Provision an Autonomous Database](#provision-an-autonomous-database). | No |
+    | `spec.ociConfig.configMapName` | string | Name of a ConfigMap whose `region` is the **peer's** region (see above). | Yes |
+    | `spec.ociConfig.secretName`| string | Name of the K8s Secret that holds the private key value (API key authentication only). | Conditional |
+
+    ```yaml
+    ---
+    apiVersion: database.oracle.com/v4
+    kind: AutonomousDatabase
+    metadata:
+      name: autonomousdatabase-standby
+    spec:
+      action: Create
+      details:
+        compartmentId: ocid1.compartment...
+        displayName: erp-standby
+        disasterRecovery:
+          sourceId: ocid1.autonomousdatabase.oc1.iad...   # the primary, in its own region
+          type: ADG
+          isReplicateAutomaticBackups: true
+      ociConfig:
+        configMapName: oci-cred-peer-region   # region: <peer region>
+        secretName: oci-privatekey
+    ```
+
+2. Apply the yaml
+
+    ```sh
+    kubectl apply -f autonomousdatabase-standby.yaml
+    ```
+
+3. Watch the peer come up. The primary resource, on its next sync, shows the peer in `status.peerDbIds`:
+
+    ```sh
+    kubectl get adb autonomousdatabase-standby -o jsonpath='{.status.lifecycleState}{" "}{.status.role}{" "}{.status.disasterRecoveryRegionType}{"\n"}'
+    ```
+
 ## Switchover an existing Autonomous Database
 
 > Note: this operation requires an `AutonomousDatabase` object to be in your cluster. This example assumes the provision operation or the bind operation has been done by the users and the operator is authorized with API Key Authentication.
@@ -759,10 +831,13 @@ To switchover an existing Autonomous Database, complete these steps:
 1. Add the following fields to the AutonomousDatabase resource definition. An example YAML file is available here: [config/samples/adb/autonomousdatabase_switchover.yaml](./../../config/samples/adb/autonomousdatabase_switchover.yaml)
     | Attribute | Type | Description | Required? |
     |----|----|----|----|
-    | `spec.details.id` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database. | Yes |
+    | `spec.details.id` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the Autonomous Database on which the switchover is invoked. For a **cross-region** pair this must be the **standby**. | Yes |
+    | `spec.details.peerDbId` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the peer to switch over to. Required for a **cross-region** pair (set it to the **primary's** OCID); may be omitted for a local Autonomous Data Guard standby in the same region. | Conditional |
     | `spec.ociConfig` | dictionary | Not required when the Operator is authorized with [Instance Principal](./ADB_PREREQUISITES.md#authorized-with-instance-principal). Otherwise, you will need the values from the [Authorized with API Key Authentication](./ADB_PREREQUISITES.md#authorized-with-api-key-authentication) section. | Conditional |
     | `spec.ociConfig.configMapName` | string | Name of the ConfigMap that holds the local OCI configuration | Conditional |
     | `spec.ociConfig.secretName`| string | Name of the K8s Secret that holds the private key value | Conditional |
+
+    > **Cross-region switchover is invoked on the standby.** OCI requires a cross-region switchover to be sent to the **standby** database's region and OCID, with `peerDbId` set to the primary's OCID. Sending it to the primary is rejected with HTTP 400 `Perform the switchover operation on the standby database`. So set `action: Switchover` on the resource that represents the standby (whose `spec.ociConfig` points at the standby's region — see [Targeting another region](#targeting-another-region)), with `spec.details.peerDbId` = the primary's OCID. After the switchover the roles reported in `status.role` of both resources swap on their next sync.
 
     ```yaml
     ---
@@ -773,7 +848,8 @@ To switchover an existing Autonomous Database, complete these steps:
     spec:
       action: Switchover
       details:
-        id: ocid1.autonomousdatabase...
+        id: ocid1.autonomousdatabase...        # the STANDBY for a cross-region pair
+        peerDbId: ocid1.autonomousdatabase...  # the PRIMARY; omit for a local Data Guard standby
       ociConfig:
         configMapName: oci-cred
         secretName: oci-privatekey
@@ -800,10 +876,13 @@ To manually failover an existing Autonomous Database, complete these steps:
 1. Add the following fields to the AutonomousDatabase resource definition. An example YAML file is available here: [config/samples/adb/autonomousdatabase_manual_failover.yaml](./../../config/samples/adb/autonomousdatabase_manual_failover.yaml)
     | Attribute | Type | Description | Required? |
     |----|----|----|----|
-    | `spec.details.id` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the source Autonomous Database that you will clone to create a new Autonomous Database. | Yes |
+    | `spec.details.id` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the Autonomous Database on which the failover is invoked. For a **cross-region** pair this must be the **standby**. | Yes |
+    | `spec.details.peerDbId` | string | The [OCID](https://docs.cloud.oracle.com/Content/General/Concepts/identifiers.htm) of the peer to fail over from. Required for a **cross-region** pair (set it to the **primary's** OCID); may be omitted for a local Autonomous Data Guard standby in the same region. | Conditional |
     | `spec.ociConfig` | dictionary | Not required when the Operator is authorized with [Instance Principal](./ADB_PREREQUISITES.md#authorized-with-instance-principal). Otherwise, you will need the values from the [Authorized with API Key Authentication](./ADB_PREREQUISITES.md#authorized-with-api-key-authentication) section. | Conditional |
     | `spec.ociConfig.configMapName` | string | Name of the ConfigMap that holds the local OCI configuration | Conditional |
     | `spec.ociConfig.secretName`| string | Name of the K8s Secret that holds the private key value | Conditional |
+
+    > As with a switchover, a **cross-region** failover is invoked on the **standby** (its OCID in `spec.details.id`, its region in `spec.ociConfig`) with `spec.details.peerDbId` set to the primary's OCID — the primary's region may be the one that is unavailable.
 
     ```yaml
     ---
@@ -814,7 +893,8 @@ To manually failover an existing Autonomous Database, complete these steps:
     spec:
       action: Failover
       details:
-        id: ocid1.autonomousdatabase...
+        id: ocid1.autonomousdatabase...        # the STANDBY for a cross-region pair
+        peerDbId: ocid1.autonomousdatabase...  # the PRIMARY; omit for a local Data Guard standby
       ociConfig:
         configMapName: oci-cred
         secretName: oci-privatekey
