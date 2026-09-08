@@ -30,6 +30,12 @@ spec:
         namespace: oracle-database-operator-system
       spec:
         type: oci
+        # v2.2.0-sunsofterp.4 = sunsofterp.3 + DbcsSystem lifecycle (#10): a
+        # launch that ends FAILED on OCI's side is terminated and relaunched
+        # (capped at 3, status.launchAttempts); deletion resolves the OCID from
+        # status.id / lastSuccessfulSpec instead of panicking on a nil spec.id
+        # (which wedged every router-launched system's finalizer). Prior
+        # sunsofterp.3 digest sha256:e450f0ac….
         # v2.2.0-sunsofterp.3 = sunsofterp.2 + DbcsSystem launch network
         # passthrough (#7: nsgIds/backupNetworkNsgIds fields; privateIp,
         # timeZone, faultDomains, backupSubnetId now reach LaunchDbSystem) —
@@ -40,7 +46,7 @@ spec:
         # DR status) + the cluster-scoped ClusterRoleBinding in platform/base (#5).
         # Prior v2.2.0-sunsofterp.1 = upstream v2.2.0 + spec.details.databaseEdition
         # (#1) + the estate release/platform tree (#2); digest sha256:538db1d1….
-        source: github-release://sunsofterp/oracle-database-operator@v2.2.0-sunsofterp.3/oracle-database-operator-v2.2.0-sunsofterp.3.oci.tar
-        sourceDigest: sha256:e450f0acffb122c0da8c3ce39eee8e4f57ea664d3166ab6d02286003f96fc58e
+        source: github-release://sunsofterp/oracle-database-operator@v2.2.0-sunsofterp.4/oracle-database-operator-v2.2.0-sunsofterp.4.oci.tar
+        sourceDigest: sha256:bbfa3c0bb0aecc897399413e83dc1b640655ad64718138f4089f0eabc22510b0
         target: iad.ocir.io/idfkrwsy40sd/oracle-database-operator/oracle-database-operator:env-generic-placeholder
         interval: 10m
