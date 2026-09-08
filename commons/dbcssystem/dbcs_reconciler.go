@@ -186,10 +186,11 @@ func CreateAndGetDbcsID(compartmentID string, logger logr.Logger, kubeClient cli
 		return "", statusErr
 	}
 
-	// Check the State
-	_, err = CheckResourceState(logger, dbClient, *resp.Id, string(databasev4.Provision), string(databasev4.Available))
+	// Check the State. A terminal state (FAILED) comes back typed with the
+	// OCID so the controller can terminate the wreck and launch again.
+	state, err := CheckResourceState(logger, dbClient, *resp.Id, string(databasev4.Provision), string(databasev4.Available))
 	if err != nil {
-		return "", err
+		return "", classifyLaunchWaitError(*resp.Id, state, err)
 	}
 
 	return *resp.DbSystem.Id, nil

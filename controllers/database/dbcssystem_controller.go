@@ -202,9 +202,43 @@ func (r *DbcsSystemReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			r.Logger.Info("Finalizer unregistered successfully.")
 		}
 	} else {
-		// The object is being deleted
-		r.Logger.Info("Terminate DbcsSystem Database: " + *dbcsInst.Spec.Id)
-		if err := dbcsv4.DeleteDbcsSystemSystem(r.dbClient, *dbcsInst.Spec.Id); err != nil {
+		// The object is being deleted. The OCID may live in spec.id, the
+		// lastSuccessfulSpec annotation, or only status.id (a launch that
+		// FAILED, or a spec re-applied by a declarative owner); a CR that
+		// never launched anything has nothing to terminate and must not
+		// block on its finalizer.
+		dbSystemID, haveID := dbSystemIDForDeletion(dbcsInst)
+		if !haveID {
+			r.Logger.Info("DbcsSystem has no DB System OCID recorded; nothing to terminate")
+		} else if state, stateErr := dbcsv4.GetResourceState(r.Logger, r.dbClient, dbSystemID); stateErr != nil {
+			if svcErr, ok := stateErr.(common.ServiceError); ok && svcErr.GetHTTPStatusCode() == 404 {
+				r.Logger.Info("DB System already gone", "Id", dbSystemID)
+				haveID = false
+			} else {
+				r.Logger.Error(stateErr, "Fail to read DB System state before terminate", "Id", dbSystemID)
+				// Persist the reason: a delete stuck on a persistent OCI error must
+				// be diagnosable from the CR, not only from the logs. The
+				// OCI-backed status sync would repeat the failing call, so this is
+				// a plain status patch.
+				r.surfaceMessage(ctx, dbcsInst, "terminate deferred: cannot read DB System "+dbSystemID+" state: "+stateErr.Error())
+				return resultQ, nil
+			}
+		} else if isGoneOrGoing(state) {
+			r.Logger.Info("DB System already terminating or terminated", "Id", dbSystemID, "State", state)
+			haveID = false
+		}
+		if !haveID {
+			if err := finalizer.Unregister(r.KubeClient, dbcsInst); err != nil {
+				r.Logger.Error(err, "failed to unregister finalizer during deletion")
+				dbcsInst.Status.Message = err.Error()
+				return ctrl.Result{}, err
+			}
+			r.Logger.Info("Finalizer unregistered successfully.")
+			return resultNq, nil
+		}
+		assignDBCSID(dbcsInst, dbSystemID)
+		r.Logger.Info("Terminate DbcsSystem Database: " + dbSystemID)
+		if err := dbcsv4.DeleteDbcsSystemSystem(r.dbClient, dbSystemID); err != nil {
 			r.Logger.Error(err, "Fail to terminate DbcsSystem Instance")
 			dbcsInst.Status.Message = err.Error()
 			// surface the failure so the user can retry once the conflicting operation completes
@@ -680,6 +714,39 @@ func (r *DbcsSystemReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			if err != nil {
 				dbcsInst.Status.Message = err.Error()
 				r.Logger.Error(err, "Fail to provision and get DbcsSystem System ID")
+
+				// A launch that reached a terminal OCI state is retried:
+				// terminate the wreck (it holds the hostname and the
+				// private IP the relaunch needs), wait for it to go, and
+				// requeue with spec.id cleared so the next reconcile takes
+				// this provisioning branch again. Bounded by
+				// maxLaunchAttempts; everything else stays FAILED.
+				if action, terminal := decideLaunchAction(err, dbcsInst.Status.LaunchAttempts); action == launchRetry {
+					attempts := dbcsInst.Status.LaunchAttempts + 1
+					r.Logger.Info("DB System launch reached a terminal state; terminating it and retrying",
+						"Id", terminal.ID, "State", terminal.State, "attempt", attempts, "maxAttempts", maxLaunchAttempts)
+					if termErr := dbcsv4.DeleteDbcsSystemSystem(r.dbClient, terminal.ID); termErr != nil {
+						r.Logger.Error(termErr, "Fail to terminate the failed DB System; will retry", "Id", terminal.ID)
+						dbcsInst.Status.Message = termErr.Error()
+						return resultQ, nil
+					}
+					if _, waitErr := dbcsv4.CheckResourceState(r.Logger, r.dbClient, terminal.ID, "TERMINATING", "TERMINATED"); waitErr != nil {
+						// A 404 means it is gone, which is what we waited for.
+						if svcErr, ok := waitErr.(common.ServiceError); !ok || svcErr.GetHTTPStatusCode() != 404 {
+							r.Logger.Error(waitErr, "Failed DB System did not reach TERMINATED; will retry", "Id", terminal.ID)
+						}
+					}
+					dbcsInst.Spec.Id = nil
+					if statusErr := r.recordLaunchAttempt(ctx, dbcsInst, attempts, databasev4.Provision,
+						fmt.Sprintf("launch attempt %d/%d ended %s (%s); terminated it and relaunching", attempts, maxLaunchAttempts, terminal.State, terminal.ID)); statusErr != nil {
+						return ctrl.Result{}, statusErr
+					}
+					return ctrl.Result{Requeue: true, RequeueAfter: 15 * time.Second}, nil
+				} else if terminal != nil {
+					dbcsInst.Status.LaunchAttempts++
+					dbcsInst.Status.Message = fmt.Sprintf("launch attempt %d/%d ended %s (%s); giving up: %v",
+						dbcsInst.Status.LaunchAttempts, maxLaunchAttempts, terminal.State, terminal.ID, err)
+				}
 
 				// Change the status to Failed
 				if statusErr := dbcsv4.SetLifecycleState(compartmentID, r.KubeClient, r.dbClient, dbcsInst, databasev4.Failed, r.nwClient, r.wrClient); statusErr != nil {

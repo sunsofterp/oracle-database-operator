@@ -804,6 +804,8 @@ spec:
                   vaultType:
                     type: string
                 type: object
+              launchAttempts:
+                type: integer
               licenseModel:
                 type: string
               message:
