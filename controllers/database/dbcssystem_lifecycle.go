@@ -119,24 +119,41 @@ func decideLaunchAction(err error, attemptsSoFar int) (launchAction, *dbcsv4.Lau
 	return launchRetry, terminal
 }
 
-// recordLaunchAttempt persists the retry bookkeeping on the status
-// subresource: the attempt count, the phase the CR is in while the relaunch
-// is pending, and a human-readable message. It patches against the latest
-// copy so the write cannot race the status sync a parallel reconcile made.
-func (r *DbcsSystemReconciler) recordLaunchAttempt(ctx context.Context, dbcs *databasev4.DbcsSystem, attempts int, state databasev4.LifecycleState, message string) error {
+// patchStatus applies mutate to the latest copy of the CR's status and
+// writes it through the status subresource with a merge patch against that
+// copy, so the write cannot race the status sync a parallel reconcile made.
+// On success the same mutation is applied to dbcs so the caller's view
+// matches what was persisted.
+func (r *DbcsSystemReconciler) patchStatus(ctx context.Context, dbcs *databasev4.DbcsSystem, mutate func(*databasev4.DbcsSystemStatus)) error {
 	latest := &databasev4.DbcsSystem{}
 	if err := r.KubeClient.Get(ctx, client.ObjectKeyFromObject(dbcs), latest); err != nil {
-		return fmt.Errorf("failed to fetch the latest DbcsSystem before recording the launch attempt: %w", err)
+		return fmt.Errorf("failed to fetch the latest DbcsSystem before patching its status: %w", err)
 	}
 	updated := latest.DeepCopy()
-	updated.Status.LaunchAttempts = attempts
-	updated.Status.State = state
-	updated.Status.Message = message
+	mutate(&updated.Status)
 	if err := r.KubeClient.Status().Patch(ctx, updated, client.MergeFrom(latest)); err != nil {
-		return fmt.Errorf("failed to record the launch attempt: %w", err)
+		return fmt.Errorf("failed to patch the DbcsSystem status: %w", err)
 	}
-	dbcs.Status.LaunchAttempts = attempts
-	dbcs.Status.State = state
-	dbcs.Status.Message = message
+	mutate(&dbcs.Status)
 	return nil
+}
+
+// recordLaunchAttempt persists the retry bookkeeping: the attempt count, the
+// phase the CR is in while the relaunch is pending, and a human-readable
+// message.
+func (r *DbcsSystemReconciler) recordLaunchAttempt(ctx context.Context, dbcs *databasev4.DbcsSystem, attempts int, state databasev4.LifecycleState, message string) error {
+	return r.patchStatus(ctx, dbcs, func(s *databasev4.DbcsSystemStatus) {
+		s.LaunchAttempts = attempts
+		s.State = state
+		s.Message = message
+	})
+}
+
+// surfaceMessage persists a diagnostic in status.message without touching
+// anything else. Used where the OCI-backed status sync cannot be trusted to
+// succeed (it would repeat the very call that just failed).
+func (r *DbcsSystemReconciler) surfaceMessage(ctx context.Context, dbcs *databasev4.DbcsSystem, message string) {
+	if err := r.patchStatus(ctx, dbcs, func(s *databasev4.DbcsSystemStatus) { s.Message = message }); err != nil {
+		r.Logger.Error(err, "failed to surface the error in status.message")
+	}
 }

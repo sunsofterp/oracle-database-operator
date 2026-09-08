@@ -216,7 +216,11 @@ func (r *DbcsSystemReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 				haveID = false
 			} else {
 				r.Logger.Error(stateErr, "Fail to read DB System state before terminate", "Id", dbSystemID)
-				dbcsInst.Status.Message = stateErr.Error()
+				// Persist the reason: a delete stuck on a persistent OCI error must
+				// be diagnosable from the CR, not only from the logs. The
+				// OCI-backed status sync would repeat the failing call, so this is
+				// a plain status patch.
+				r.surfaceMessage(ctx, dbcsInst, "terminate deferred: cannot read DB System "+dbSystemID+" state: "+stateErr.Error())
 				return resultQ, nil
 			}
 		} else if isGoneOrGoing(state) {
