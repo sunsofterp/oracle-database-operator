@@ -73,20 +73,20 @@ type DbcsSystemSpec struct {
 
 // DbSystemDetails captures the desired configuration for a Database Cloud Service instance, including its shape, storage, networking, database settings, and other attributes. This struct is used in the Spec of the DbcsSystem resource to define the intended state of the DB system that the operator will manage and reconcile towards. It includes fields for compartment ID, availability domain, subnet ID, shape, SSH keys, host name, CPU core count, fault domains, display name, backup configuration, time zone, database name and version, license model, and more. This comprehensive set of fields allows users to specify all necessary details for provisioning and managing an Oracle Database Cloud Service instance through Kubernetes custom resources.
 type DbSystemDetails struct {
-	CompartmentId              string            `json:"compartmentId,omitempty"`
-	AvailabilityDomain         string            `json:"availabilityDomain,omitempty"`
-	SubnetId                   string            `json:"subnetId,omitempty"`
-	Shape                      string            `json:"shape,omitempty"`
-	SshPublicKeys              []string          `json:"sshPublicKeys,omitempty"`
-	HostName                   string            `json:"hostName,omitempty"`
-	CpuCoreCount               int               `json:"cpuCoreCount,omitempty"`
-	FaultDomains               []string          `json:"faultDomains,omitempty"`
-	DisplayName                string            `json:"displayName,omitempty"`
-	BackupDisplayName          string            `json:"backupDisplayName,omitempty"`
-	BackupSubnetId             string            `json:"backupSubnetId,omitempty"`
-	TimeZone                   string            `json:"timeZone,omitempty"`
-	NodeCount                  *int              `json:"nodeCount,omitempty"`
-	PrivateIp                  string            `json:"privateIp,omitempty"`
+	CompartmentId      string   `json:"compartmentId,omitempty"`
+	AvailabilityDomain string   `json:"availabilityDomain,omitempty"`
+	SubnetId           string   `json:"subnetId,omitempty"`
+	Shape              string   `json:"shape,omitempty"`
+	SshPublicKeys      []string `json:"sshPublicKeys,omitempty"`
+	HostName           string   `json:"hostName,omitempty"`
+	CpuCoreCount       int      `json:"cpuCoreCount,omitempty"`
+	FaultDomains       []string `json:"faultDomains,omitempty"`
+	DisplayName        string   `json:"displayName,omitempty"`
+	BackupDisplayName  string   `json:"backupDisplayName,omitempty"`
+	BackupSubnetId     string   `json:"backupSubnetId,omitempty"`
+	TimeZone           string   `json:"timeZone,omitempty"`
+	NodeCount          *int     `json:"nodeCount,omitempty"`
+	PrivateIp          string   `json:"privateIp,omitempty"`
 	// NsgIds are the network security groups the DB system's client VNIC is
 	// attached to at launch (OCI LaunchDbSystemDetails.nsgIds). Lets the
 	// database accept connections only from a known set of sources (e.g. the
@@ -191,6 +191,11 @@ type DbcsSystemStatus struct {
 	DataGuardStatus  *DataGuardStatus   `json:"dataGuardStatus,omitempty"`
 	Backups          []BackupInfo       `json:"backups,omitempty"`
 	Message          string             `json:"message,omitempty"`
+	// LaunchAttempts counts launches of this CR that ended in a terminal OCI
+	// state (FAILED). Each one is terminated and the launch retried, up to a
+	// fixed budget; the count lives in status so a declarative owner that
+	// re-applies the manifest cannot reset it.
+	LaunchAttempts int `json:"launchAttempts,omitempty"`
 }
 
 // DbStatus summarizes state for an individual database within the system.
